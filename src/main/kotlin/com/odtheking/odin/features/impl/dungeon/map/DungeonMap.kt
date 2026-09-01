@@ -1,24 +1,18 @@
-package com.odtheking.odin.features.impl.dungeon.map
+﻿package com.odtheking.odin.features.impl.dungeon.map
 
 import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
-import com.odtheking.odin.clickgui.settings.impl.*
-import com.odtheking.odin.events.FloorEnterEvent
-import com.odtheking.odin.events.RoomEnterEvent
-import com.odtheking.odin.events.SecretsUpdateEvent
-import com.odtheking.odin.events.core.on
+import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
+import com.odtheking.odin.clickgui.settings.impl.ColorSetting
+import com.odtheking.odin.clickgui.settings.impl.DropdownSetting
+import com.odtheking.odin.clickgui.settings.impl.NumberSetting
 import com.odtheking.odin.features.Module
-import com.odtheking.odin.features.impl.render.ClickGUIModule
 import com.odtheking.odin.utils.Color
 import com.odtheking.odin.utils.Color.Companion.darker
 import com.odtheking.odin.utils.Color.Companion.withAlpha
 import com.odtheking.odin.utils.Colors
-import com.odtheking.odin.utils.IVec2
-import com.odtheking.odin.utils.devMessage
-import com.odtheking.odin.utils.network.WebUtils.gson
-import com.odtheking.odin.utils.network.webSocket
 import com.odtheking.odin.utils.render.hollowFill
-import com.odtheking.odin.utils.skyblock.LocationUtils
 import com.odtheking.odin.utils.skyblock.dungeon.DungeonUtils
+import net.minecraft.client.gui.GuiGraphicsExtractor
 
 object DungeonMap : Module(
     name = "Dungeon Map",
@@ -28,15 +22,14 @@ object DungeonMap : Module(
 
     val backgroundOutline by ColorSetting("Background Outline", Colors.BLACK, true, desc = "The color of the background border.")
     val backgroundColor by ColorSetting("Background Color", Colors.BLACK.withAlpha(0.1f), true, desc = "Background color of the map.")
-    val roomText by SelectorSetting("Room Text", "Both", listOf("Both", "Room Name", "Room Secrets"), desc = "What to display on the rooms.")
-    val textScaling by NumberSetting("Text Scaling", 0.45f, 0.1f, 1f, 0.05f, desc = "Scale of room name text.")
+    val textScaling by NumberSetting("Text Scaling", 0.45f, 0.1..1.0, 0.05f, desc = "Scale of room name text.")
 
-    private val playerDropdown by DropdownSetting("Player Settings")
-    val playerNamesScaling by NumberSetting("Player Names Scaling", 0.75f, 0.1f, 2f, 0.05f, desc = "Scale of player name labels.").withDependency { playerDropdown }
+    private val playerDropdown by DropdownSetting("Player Settings", desc = "Shows settings for player name labels on the map.")
+    val playerNamesScaling by NumberSetting("Player Names Scaling", 0.75f, 0.1..2.0, 0.05f, desc = "Scale of player name labels.").withDependency { playerDropdown }
     val playerNameColor by ColorSetting("Player Name Color", Color(70, 70, 70), true, desc = "Color of player name labels.").withDependency { playerDropdown }
     val playerHead by BooleanSetting("Own Player Head", false, desc = "Shows the player head on the map.").withDependency { playerDropdown }
 
-    private val roomDropdown by DropdownSetting("Room Settings")
+    private val roomDropdown by DropdownSetting("Room Settings", desc = "Shows color settings for the different room types.")
     val normalRoomColor by ColorSetting("Normal Room", Color(107, 58, 17), true, desc = "Color of normal rooms.").withDependency { roomDropdown }
     val puzzleRoomColor by ColorSetting("Puzzle Room", Color(117, 0, 133), true, desc = "Color of puzzle rooms.").withDependency { roomDropdown }
     val trapRoomColor by ColorSetting("Trap Room", Color(216, 127, 51), true, desc = "Color of trap rooms.").withDependency { roomDropdown }
@@ -46,7 +39,7 @@ object DungeonMap : Module(
     val championRoomColor by ColorSetting("Champion Room", Color(254, 223, 0), true, desc = "Color of champion rooms.").withDependency { roomDropdown }
     val unknownRoomColor by ColorSetting("Unknown Room", Color(40, 40, 40), true, desc = "Color of unknown rooms hinted by a door with no discovered room on the other side.").withDependency { roomDropdown }
 
-    private val doorDropdown by DropdownSetting("Door Settings")
+    private val doorDropdown by DropdownSetting("Door Settings", desc = "Shows color settings for the different door types.")
     val normalDoorColor by ColorSetting("Normal Door", Color(107, 58, 17).darker(), desc = "Color of normal doors.").withDependency { doorDropdown }
     val witherDoorColor by ColorSetting("Wither Door", Colors.BLACK, true, desc = "Color of wither doors.").withDependency { doorDropdown }
     val bloodDoorColor by ColorSetting("Blood Door", Color(255, 0, 0), true, desc = "Color of blood room doors.").withDependency { doorDropdown }
@@ -55,11 +48,8 @@ object DungeonMap : Module(
 
     val disablePred by BooleanSetting("Disable Prediction", false, desc = "Disables special-column room type prediction.")
 
-    private val allowWebsocket by BooleanSetting("Websocket", true, desc = "Shares information in your room with the rest of your dungeon party.")
-
     private val exampleRooms by lazy { buildExampleRooms() }
     private val exampleDoors by lazy { buildExampleDoors() }
-    private const val MAP_PX = 128
 
     private val mapHud by HUD("Dungeon Map", "Displays the dungeon map.", false) { example ->
         if ((!DungeonUtils.inDungeons || (disableBoss && DungeonUtils.inBoss)) && !example) return@HUD 0 to 0
@@ -73,7 +63,7 @@ object DungeonMap : Module(
         }
         else {
             pose().translate(DungeonScan.startX.toFloat(), DungeonScan.startY.toFloat())
-            pose().scale(DungeonScan.roomSize / 16f)
+            pose().scale(DungeonScan.roomSize / DungeonScan.MAP_ROOM_SIZE.toFloat())
 
             renderMap(DungeonScan.rooms, DungeonScan.doors.values, DungeonScan.pathHints)
 
@@ -84,31 +74,5 @@ object DungeonMap : Module(
         MAP_PX to MAP_PX
     }
 
-    val syncSocket = webSocket {
-        onMessage { message ->
-            val (roomName, foundSecrets, position) = try { gson.fromJson(message, RoomSync::class.java) } catch (_: Exception) { return@onMessage }
-            val room = DungeonScan.rooms.find { it.name == roomName && it.topLeft == position } ?: return@onMessage
-            if ((room.foundSecrets ?: -1) < (foundSecrets ?: -1)) room.foundSecrets = foundSecrets
-            room.walkedInto = true
-        }
-    }
-
-    init {
-        on<SecretsUpdateEvent> {
-            if (!allowWebsocket) return@on
-            room.name?.let { syncSocket.send(gson.toJson(RoomSync(it, foundSecrets, room.topLeft))) }
-        }
-
-        on<FloorEnterEvent> {
-            if (!allowWebsocket) return@on
-            LocationUtils.lobbyId?.let { syncSocket.connect("${ClickGUIModule.webSocketUrl}$it") } ?: devMessage("Failed to connect to dungeon websocket, lobbyId is null.")
-        }
-
-        on<RoomEnterEvent> {
-            if (room == null) syncSocket.shutdown()
-            else if (allowWebsocket) room.name?.let { syncSocket.send(gson.toJson(RoomSync(it, room.foundSecrets, room.topLeft))) }
-        }
-    }
-
-    private data class RoomSync(val roomName: String, val foundSecrets: Int?, val position: IVec2)
+    private const val MAP_PX = 128
 }

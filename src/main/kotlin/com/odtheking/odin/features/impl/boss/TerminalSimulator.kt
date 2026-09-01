@@ -1,4 +1,4 @@
-package com.odtheking.odin.features.impl.boss
+﻿package com.odtheking.odin.features.impl.boss
 
 import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
 import com.odtheking.odin.clickgui.settings.impl.NumberSetting
@@ -12,8 +12,8 @@ object TerminalSimulator : Module(
     name = "Terminal Simulator",
     description = "Simulates a floor 7 terminal from phase 3."
 ) {
-    private val ping by NumberSetting("Ping", 0, 0, 500, 50, desc = "Ping of the terminal.")
-    val disableFirstClickProtection by BooleanSetting("First Click Prot", false, desc = "Disables First click protection while solving termsim.")
+    private val ping by NumberSetting("Ping", 0, 0..500, 50, desc = "Ping of the terminal.")
+    val disableFirstClickProtection by BooleanSetting("First Click Protection", false, desc = "")
 
     val termSimPBs = PersonalBest(this, "TermsimPBs")
 

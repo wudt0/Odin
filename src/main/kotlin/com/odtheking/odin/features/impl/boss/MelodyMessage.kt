@@ -25,6 +25,7 @@ import com.odtheking.odin.utils.skyblock.dungeon.M7Phases
 import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalTypes
 import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalUtils
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.world.item.DyeColor
 import net.minecraft.world.item.Items
 import java.util.concurrent.ConcurrentHashMap
 
@@ -33,7 +34,7 @@ object MelodyMessage : Module(
     description = "Helpful messages for the melody terminal in floor 7."
 ) {
     private val sendMelodyMessage by BooleanSetting("Send Melody Message", true, desc = "Sends a message when the melody terminal opens.")
-    private val melodyMessage by StringSetting("Melody Message", "Melody Terminal start!", 128, desc = "Message sent when the melody terminal opens.").withDependency { sendMelodyMessage }
+    private val melodyMessage by StringSetting("Melody Message", "Melody Terminal start!", 128, desc = "Message sent when the melody terminal opens.", placeholder = "Melody Terminal start!").withDependency { sendMelodyMessage }
     private val melodyProgress by BooleanSetting("Melody Progress", false, desc = "Tells the party about melody terminal progress.")
     private val melodySendCoords by BooleanSetting("Melody Send Coords", false, desc = "Sends the coordinates of the melody terminal.").withDependency { melodyProgress }
 
@@ -71,7 +72,7 @@ object MelodyMessage : Module(
 
     init {
         on<TerminalEvent.Open> {
-            if (DungeonUtils.getF7Phase() != M7Phases.P3 || terminal.type != TerminalTypes.MELODY || mc.screen is TermSimGUI) return@on
+            if (DungeonUtils.getF7Phase() != M7Phases.P3 || terminal.type != TerminalTypes.MELODY || mc.gui.screen() is TermSimGUI) return@on
             if (sendMelodyMessage) sendCommand("pc $melodyMessage")
             if (melodySendCoords) sendCommand("od sendcoords")
         }
@@ -111,26 +112,26 @@ object MelodyMessage : Module(
 
     private fun SetSlotEvent.onSlotUpdate() {
         val term = TerminalUtils.currentTerm ?: return
-        if (DungeonUtils.getF7Phase() != M7Phases.P3 || term.type != TerminalTypes.MELODY || mc.screen is TermSimGUI) return
+        if (DungeonUtils.getF7Phase() != M7Phases.P3 || term.type != TerminalTypes.MELODY || mc.gui.screen() is TermSimGUI) return
 
-        val item = itemStack.item
-        if (item == Items.LIME_TERRACOTTA) {
-            val position = slotIndex / 9
+        val item = event.packet.item.item
+        if (item == Items.DYED_TERRACOTTA.pick(DyeColor.LIME)) {
+            val position = event.packet.slot / 9
             if (lastSent.clay == position) return
             if (broadcast) melodyWebSocket.send(update(1, position))
             if (melodyProgress) clayProgress[position]?.let { sendCommand("pc $it") }
             lastSent.clay = position
             return
         }
-        if (!broadcast || !item.equalsOneOf(Items.MAGENTA_STAINED_GLASS_PANE, Items.LIME_STAINED_GLASS_PANE)) return
-        val index = mapToRange(slotIndex) ?: return
+        if (!broadcast || !item.equalsOneOf(Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA), Items.STAINED_GLASS_PANE.pick(DyeColor.LIME))) return
+        val index = mapToRange(event.packet.slot) ?: return
         val meta = when (item) {
-            Items.MAGENTA_STAINED_GLASS_PANE -> {
+            Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA) -> {
                 if (lastSent.purple == index) return
                 lastSent.purple = index
                 2
             }
-            Items.LIME_STAINED_GLASS_PANE -> {
+            Items.STAINED_GLASS_PANE.pick(DyeColor.LIME) -> {
                 if (lastSent.pane == index) return
                 lastSent.pane = index
                 5

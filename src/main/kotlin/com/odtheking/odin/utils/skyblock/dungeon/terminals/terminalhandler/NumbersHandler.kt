@@ -1,19 +1,22 @@
-package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
+﻿package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
 
 import com.odtheking.odin.features.impl.boss.TerminalSolver
 import com.odtheking.odin.utils.Color
 import com.odtheking.odin.utils.Colors
 import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalTypes
-import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.DyeColor
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import kotlin.math.abs
 
 class NumbersHandler: TerminalHandler(TerminalTypes.NUMBERS) {
 
-    override fun solve(slots: List<Slot>, updatedIndex: Int): List<Int> =
-        slots.mapIndexedNotNull { index, slot ->
-            if (slot.item.item == Items.RED_STAINED_GLASS_PANE) index else null
-        }.sortedBy { slots[it].item.count }
+    override fun solve(items: List<ItemStack>): List<Int> {
+        val redPane = Items.STAINED_GLASS_PANE.pick(DyeColor.RED)
+        return items.mapIndexedNotNull { index, item ->
+            if (item.item == redPane) index else null
+        }.sortedBy { items[it].count }
+    }
 
     override fun simulateClick(slotIndex: Int, clickType: Int) {
         solution.removeAt(0)
@@ -28,6 +31,6 @@ class NumbersHandler: TerminalHandler(TerminalTypes.NUMBERS) {
             1 -> TerminalSolver.orderColor2
             2 -> TerminalSolver.orderColor3
             else -> Colors.TRANSPARENT
-        } to if (TerminalSolver.showNumbers) (abs((solution.size - 10) - solutionIndex) + 1).toString() else null
+        } to if (TerminalSolver.showNumbers) (abs((solution.size - 14) - solutionIndex) + 1).toString() else null
     }
 }

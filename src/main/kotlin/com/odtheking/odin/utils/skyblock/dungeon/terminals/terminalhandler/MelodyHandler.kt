@@ -1,25 +1,29 @@
-package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
+﻿package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
 
 import com.odtheking.odin.features.impl.boss.TerminalSolver
 import com.odtheking.odin.utils.Color
 import com.odtheking.odin.utils.equalsOneOf
 import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalTypes
-import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.DyeColor
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
 class MelodyHandler: TerminalHandler(TerminalTypes.MELODY) {
 
-    override fun solve(slots: List<Slot>, updatedIndex: Int): List<Int> {
-        val magentaPane = slots.indexOfFirst { it.item.item == Items.MAGENTA_STAINED_GLASS_PANE }
-        val greenPane = slots.indexOfLast { it.item.item == Items.LIME_STAINED_GLASS_PANE }
-        val greenClay = slots.indexOfLast { it.item.item == Items.LIME_TERRACOTTA }
+    override fun canSolve(items: List<ItemStack>, currentIndex: Int): Boolean = true
 
-        return buildList {
-            add(greenPane)
-            add(magentaPane)
-            add(magentaPane + 36)
+    override fun solve(items: List<ItemStack>): List<Int> {
+        val magentaPaneItem = Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA)
+        val magentaPane = items.indexOfFirst { it.item == magentaPaneItem }
+        val greenPane = items.indexOfLast { it.item == Items.STAINED_GLASS_PANE.pick(DyeColor.LIME) }
+        val greenClay = items.indexOfLast { it.item == Items.DYED_TERRACOTTA.pick(DyeColor.LIME) }
 
-            if (greenPane % 9 == magentaPane % 9) add(greenClay)
+        return items.mapIndexedNotNull { index, item ->
+            when {
+                index == greenPane || item.item == magentaPaneItem -> index
+                index == greenClay && greenPane % 9 == magentaPane % 9 -> index
+                else -> null
+            }
         }
     }
 
@@ -27,8 +31,8 @@ class MelodyHandler: TerminalHandler(TerminalTypes.MELODY) {
         slotIndex.equalsOneOf(16, 25, 34, 43)
 
     override fun renderSlot(slotIndex: Int): Pair<Color, String?> = when {
-        (slotIndex / 9).equalsOneOf(0, 4) -> TerminalSolver.melodyColumColor
-        (slotIndex % 9).equalsOneOf(1, 2, 3, 4) -> TerminalSolver.melodyPointerColor
+        (slotIndex / 9).equalsOneOf(0, 5) -> TerminalSolver.melodyColumColor
+        (slotIndex % 9).equalsOneOf(1, 2, 3, 4, 5) -> TerminalSolver.melodyPointerColor
         else -> TerminalSolver.melodyPointerColor
     } to null
 }

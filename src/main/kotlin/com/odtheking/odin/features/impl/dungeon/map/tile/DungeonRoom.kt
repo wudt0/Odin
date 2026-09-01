@@ -4,6 +4,7 @@ import com.odtheking.odin.OdinMod.mc
 import com.odtheking.odin.features.impl.dungeon.dungeonwaypoints.DungeonWaypoints
 import com.odtheking.odin.utils.*
 import net.minecraft.core.BlockPos
+import net.minecraft.world.item.DyeColor
 import net.minecraft.world.level.block.Blocks
 
 class DungeonRoom(var type: RoomType, initialPosition: IVec2, var data: RoomData? = null) {
@@ -147,7 +148,7 @@ class DungeonRoom(var type: RoomType, initialPosition: IVec2, var data: RoomData
 
         for (rot in RoomRotation.entries) {
             val pos = clayProbePos(rot, y)
-            if (mc.level?.getBlockState(pos)?.block == Blocks.BLUE_TERRACOTTA) {
+            if (mc.level?.getBlockState(pos)?.block == Blocks.DYED_TERRACOTTA.pick(DyeColor.BLUE)) {
                 rotation = rot
                 clayPos = pos
                 return true
