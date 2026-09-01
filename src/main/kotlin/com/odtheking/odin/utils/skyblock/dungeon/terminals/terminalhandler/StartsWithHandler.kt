@@ -8,28 +8,30 @@ import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalTypes
 import net.minecraft.client.gui.screens.inventory.ContainerScreen
 import net.minecraft.core.component.DataComponents
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
 class StartsWithHandler(private val letter: String): TerminalHandler(TerminalTypes.STARTS_WITH) {
 
-    private val clickedSlots = mutableSetOf<Int>()
+    private val clickedSlotsLocal = mutableSetOf<Int>()
 
     private var clickedSlot: Pair<Int, Int>? = null
 
-    override fun solve(items: List<ItemStack>): List<Int> {
+    override fun solve(slots: List<Slot>, updatedIndex: Int): List<Int> {
         clickedSlot?.let {
             val screenHandler = (mc.gui.screen() as? ContainerScreen)?.menu
             if (it.first != screenHandler?.containerId) {
-                val item = items[it.second].item
-                if (item in enchantOverrides) clickedSlots.add(it.second)
+                val item = slots.getOrNull(it.second)?.item ?: ItemStack.EMPTY
+                if (item.item in enchantOverrides) clickedSlotsLocal.add(it.second)
                 clickedSlot = null
             }
         }
 
-        return items.mapIndexedNotNull { index, item ->
+        return slots.mapIndexedNotNull { index, slot ->
+            val item = slot.item
             if (item.hoverName.string.startsWith(letter, true) &&
-                index !in clickedSlots &&
+                index !in clickedSlotsLocal &&
                 (!item.hasGlint() || item.item in enchantOverrides)) index else null
         }
     }

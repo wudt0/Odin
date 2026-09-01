@@ -44,14 +44,14 @@ object MelodyMessage : Module(
 
         if (broadcast && melodyWebSocket.connected) {
             melodies.entries.forEachIndexed { i, (name, data) ->
-                if (showPlayer == 0 && name == mc.user.name) return@forEachIndexed
+                if (showPlayer == ShowPlayer.NONE && name == mc.user.name) return@forEachIndexed
                 drawMelody(data, i, name)
             }
         }
         40 to 15
     }.withDependency { broadcast }
 
-    private val showPlayer by SelectorSetting("Show Player", "Name", arrayListOf("None", "Class", "Name", "Class & Name"), desc = "How player details should be rendered in the Melody GUI.").withDependency { broadcast }
+    private val showPlayer by SelectorSetting("Show Player", ShowPlayer.NAME, desc = "How player details should be rendered in the Melody GUI.").withDependency { broadcast }
 
     val melodyWebSocket = webSocket {
         onMessage { message ->
@@ -114,9 +114,9 @@ object MelodyMessage : Module(
         val term = TerminalUtils.currentTerm ?: return
         if (DungeonUtils.getF7Phase() != M7Phases.P3 || term.type != TerminalTypes.MELODY || mc.gui.screen() is TermSimGUI) return
 
-        val item = event.packet.item.item
+        val item = itemStack.item
         if (item == Items.DYED_TERRACOTTA.pick(DyeColor.LIME)) {
-            val position = event.packet.slot / 9
+            val position = slotIndex / 9
             if (lastSent.clay == position) return
             if (broadcast) melodyWebSocket.send(update(1, position))
             if (melodyProgress) clayProgress[position]?.let { sendCommand("pc $it") }
@@ -124,7 +124,7 @@ object MelodyMessage : Module(
             return
         }
         if (!broadcast || !item.equalsOneOf(Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA), Items.STAINED_GLASS_PANE.pick(DyeColor.LIME))) return
-        val index = mapToRange(event.packet.slot) ?: return
+        val index = mapToRange(slotIndex) ?: return
         val meta = when (item) {
             Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA) -> {
                 if (lastSent.purple == index) return
@@ -165,13 +165,21 @@ object MelodyMessage : Module(
         }
 
         val label = when (showPlayer) {
-            1 -> data.dungeonClass
-            2 -> playerName
-            3 -> "$playerName (${data.dungeonClass})"
+            ShowPlayer.CLASS -> data.dungeonClass.toString()
+            ShowPlayer.NAME -> playerName
+            ShowPlayer.CLASS_AND_NAME -> "$playerName (${data.dungeonClass})"
             else -> return
         }
 
         data.clay?.let { textDim("$it $label", width * 5 + 2, y + width / 2) }
+    }
+
+    enum class ShowPlayer(private val display: String) {
+        NONE("None"),
+        CLASS("Class"),
+        NAME("Name"),
+        CLASS_AND_NAME("Class & Name");
+        override fun toString(): String = display
     }
 
     private data class UpdateMessage(val username: String, val type: Int, val slot: Int)

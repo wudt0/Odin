@@ -1,16 +1,23 @@
 ﻿package com.odtheking.odin.features.impl.dungeon.map
 
 import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
-import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
-import com.odtheking.odin.clickgui.settings.impl.ColorSetting
-import com.odtheking.odin.clickgui.settings.impl.DropdownSetting
-import com.odtheking.odin.clickgui.settings.impl.NumberSetting
+import com.odtheking.odin.clickgui.settings.impl.*
+import com.odtheking.odin.events.FloorEnterEvent
+import com.odtheking.odin.events.RoomEnterEvent
+import com.odtheking.odin.events.SecretsUpdateEvent
+import com.odtheking.odin.events.core.on
 import com.odtheking.odin.features.Module
+import com.odtheking.odin.features.impl.render.ClickGUIModule
 import com.odtheking.odin.utils.Color
 import com.odtheking.odin.utils.Color.Companion.darker
 import com.odtheking.odin.utils.Color.Companion.withAlpha
 import com.odtheking.odin.utils.Colors
+import com.odtheking.odin.utils.IVec2
+import com.odtheking.odin.utils.devMessage
+import com.odtheking.odin.utils.network.WebUtils.gson
+import com.odtheking.odin.utils.network.webSocket
 import com.odtheking.odin.utils.render.hollowFill
+import com.odtheking.odin.utils.skyblock.LocationUtils
 import com.odtheking.odin.utils.skyblock.dungeon.DungeonUtils
 import net.minecraft.client.gui.GuiGraphicsExtractor
 
@@ -22,6 +29,7 @@ object DungeonMap : Module(
 
     val backgroundOutline by ColorSetting("Background Outline", Colors.BLACK, true, desc = "The color of the background border.")
     val backgroundColor by ColorSetting("Background Color", Colors.BLACK.withAlpha(0.1f), true, desc = "Background color of the map.")
+    val roomText by SelectorSetting("Room Text", RoomText.BOTH, desc = "What to display on the rooms.")
     val textScaling by NumberSetting("Text Scaling", 0.45f, 0.1..1.0, 0.05f, desc = "Scale of room name text.")
 
     private val playerDropdown by DropdownSetting("Player Settings", desc = "Shows settings for player name labels on the map.")
@@ -48,6 +56,8 @@ object DungeonMap : Module(
 
     val disablePred by BooleanSetting("Disable Prediction", false, desc = "Disables special-column room type prediction.")
 
+    private val allowWebsocket by BooleanSetting("Websocket", true, desc = "Shares information in your room with the rest of your dungeon party.")
+
     private val exampleRooms by lazy { buildExampleRooms() }
     private val exampleDoors by lazy { buildExampleDoors() }
 
@@ -63,7 +73,7 @@ object DungeonMap : Module(
         }
         else {
             pose().translate(DungeonScan.startX.toFloat(), DungeonScan.startY.toFloat())
-            pose().scale(DungeonScan.roomSize / DungeonScan.MAP_ROOM_SIZE.toFloat())
+            pose().scale(DungeonScan.roomSize / 16f)
 
             renderMap(DungeonScan.rooms, DungeonScan.doors.values, DungeonScan.pathHints)
 
@@ -72,6 +82,41 @@ object DungeonMap : Module(
         pose().popMatrix()
 
         MAP_PX to MAP_PX
+    }
+
+    val syncSocket = webSocket {
+        onMessage { message ->
+            val (roomName, foundSecrets, position) = try { gson.fromJson(message, RoomSync::class.java) } catch (_: Exception) { return@onMessage }
+            val room = DungeonScan.rooms.find { it.name == roomName && it.topLeft == position } ?: return@onMessage
+            if ((room.foundSecrets ?: -1) < (foundSecrets ?: -1)) room.foundSecrets = foundSecrets
+            room.walkedInto = true
+        }
+    }
+
+    init {
+        on<SecretsUpdateEvent> {
+            if (!allowWebsocket) return@on
+            room.name?.let { syncSocket.send(gson.toJson(RoomSync(it, foundSecrets, room.topLeft))) }
+        }
+
+        on<FloorEnterEvent> {
+            if (!allowWebsocket) return@on
+            LocationUtils.lobbyId?.let { syncSocket.connect("${ClickGUIModule.webSocketUrl}$it") } ?: devMessage("Failed to connect to dungeon websocket, lobbyId is null.")
+        }
+
+        on<RoomEnterEvent> {
+            if (room == null) syncSocket.shutdown()
+            else if (allowWebsocket) room.name?.let { syncSocket.send(gson.toJson(RoomSync(it, room.foundSecrets, room.topLeft))) }
+        }
+    }
+
+    private data class RoomSync(val roomName: String, val foundSecrets: Int?, val position: IVec2)
+
+    enum class RoomText(private val display: String) {
+        BOTH("Both"),
+        ROOM_NAME("Room Name"),
+        SECRETS("Room Secrets");
+        override fun toString(): String = display
     }
 
     private const val MAP_PX = 128

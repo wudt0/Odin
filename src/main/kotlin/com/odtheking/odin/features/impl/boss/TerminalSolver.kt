@@ -74,16 +74,16 @@ object TerminalSolver : Module(
         on<GuiEvent.SlotClick> {
             val term = TerminalUtils.currentTerm ?: return@on
 
-            if (blockIncorrectClicks && !term.canClick(slotId, button)) return@on cancel()
+            if (blockIncorrectClicks && !term.canClick(slotIndex, button)) return@on cancel()
 
             if (term.shouldProtect()) return@on cancel()
 
             if (middleClickGUI) {
-                term.click(slotId, if (button == 0) GLFW.GLFW_MOUSE_BUTTON_3 else button, hideClicked && !term.isClicked)
+                term.click(slotIndex, if (button == 0) GLFW.GLFW_MOUSE_BUTTON_3 else button, hideClicked && term.clickedSlots.isEmpty())
                 return@on cancel()
             }
 
-            if (hideClicked && !term.isClicked) term.simulateClick(slotId, button)
+            if (hideClicked && term.clickedSlots.isEmpty()) term.simulateClick(slotIndex, button)
         }
 
         on<GuiEvent.Render> {
@@ -130,8 +130,7 @@ object TerminalSolver : Module(
                 "§7Container ID: §f${menu.containerId}",
                 "§7Time Open: §f${System.currentTimeMillis() - term.timeOpened}ms",
                 "§7Ticks Open: §f${term.ticksOpened}",
-                "§7Is Clicked: §f${term.isClicked}",
-                "§7Window Count: §f${term.windowCount}",
+                "§7Clicked Slots: §f${term.clickedSlots}",
                 "§7Solution: §f${term.solution.joinToString(", ")}",
             )
 
