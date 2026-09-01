@@ -4,7 +4,7 @@ import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
 import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
 import com.odtheking.odin.clickgui.settings.impl.SelectorSetting
 import com.odtheking.odin.clickgui.settings.impl.StringSetting
-import com.odtheking.odin.events.ChatPacketEvent
+import com.odtheking.odin.events.ChatMessageEvent
 import com.odtheking.odin.events.LevelEvent
 import com.odtheking.odin.events.SetSlotEvent
 import com.odtheking.odin.events.TerminalEvent
@@ -16,7 +16,7 @@ import com.odtheking.odin.utils.equalsOneOf
 import com.odtheking.odin.utils.network.WebUtils.gson
 import com.odtheking.odin.utils.network.webSocket
 import com.odtheking.odin.utils.render.getStringWidth
-import com.odtheking.odin.utils.render.textDim
+import com.odtheking.odin.utils.render.text
 import com.odtheking.odin.utils.sendCommand
 import com.odtheking.odin.utils.skyblock.LocationUtils
 import com.odtheking.odin.utils.skyblock.dungeon.DungeonClass
@@ -40,15 +40,31 @@ object MelodyMessage : Module(
 
     private val broadcast by BooleanSetting("Broadcast Progress", true, desc = "Broadcasts melody progress to all other odin users in the party.")
     private val melodyGui by HUD("Progress GUI", "Shows a gui with the progress of broadcasting odin users in melody.", true) {
-        if (it) drawMelody(MelodyData(3, 1, 2, DungeonClass.ARCHER), 0, mc.user.name)
+        var rows = 0
+        var labelWidth = 0
+
+        fun track(data: MelodyData, index: Int, name: String) {
+            rows = maxOf(rows, index + 1)
+            val clay = data.clay ?: return
+            val label = melodyLabel(data, name) ?: ""
+            labelWidth = maxOf(labelWidth, getStringWidth("$clay $label"))
+        }
+
+        if (it) {
+            val example = MelodyData(3, 1, 2, DungeonClass.ARCHER)
+            drawMelody(example, 0, mc.user.name)
+            track(example, 0, mc.user.name)
+        }
 
         if (broadcast && melodyWebSocket.connected) {
             melodies.entries.forEachIndexed { i, (name, data) ->
                 if (showPlayer == ShowPlayer.NONE && name == mc.user.name) return@forEachIndexed
                 drawMelody(data, i, name)
+                track(data, i, name)
             }
         }
-        40 to 15
+
+        (width * 5 + 2 + labelWidth) to (width * rows)
     }.withDependency { broadcast }
 
     private val showPlayer by SelectorSetting("Show Player", ShowPlayer.NAME, desc = "How player details should be rendered in the Melody GUI.").withDependency { broadcast }
@@ -77,7 +93,7 @@ object MelodyMessage : Module(
             if (melodySendCoords) sendCommand("od sendcoords")
         }
 
-        on<ChatPacketEvent> {
+        on<ChatMessageEvent> {
             if (broadcast || melodyProgress) onChatMessage(value)
         }
 
@@ -156,22 +172,27 @@ object MelodyMessage : Module(
 
     private val width by lazy { getStringWidth("§d■") }
 
+    private fun melodyLabel(data: MelodyData, playerName: String): String? = when (showPlayer) {
+        ShowPlayer.CLASS -> "§${data.dungeonClass.colorCode}${data.dungeonClass.name.lowercase()}"
+        ShowPlayer.NAME -> "§6$playerName"
+        ShowPlayer.CLASS_AND_NAME -> "§6$playerName §8(§${data.dungeonClass.colorCode}${data.dungeonClass.name.lowercase()}§8)"
+        ShowPlayer.NONE -> null
+    }
+
     private fun GuiGraphicsExtractor.drawMelody(data: MelodyData, index: Int, playerName: String) {
-        val y = width * 2 * index
+        val y = width * index - 1
 
         repeat(5) {
-            if (data.purple == it) textDim("§d■", width * it, y)
-            textDim("${if (data.pane == it) "§a" else "§f"}■", width * it, y + width)
+            val color = when (it) {
+                data.pane -> "§a"
+                data.purple -> "§d"
+                else -> "§f"
+            }
+            text("$color■", width * it, y)
         }
 
-        val label = when (showPlayer) {
-            ShowPlayer.CLASS -> data.dungeonClass.toString()
-            ShowPlayer.NAME -> playerName
-            ShowPlayer.CLASS_AND_NAME -> "$playerName (${data.dungeonClass})"
-            else -> return
-        }
-
-        data.clay?.let { textDim("$it $label", width * 5 + 2, y + width / 2) }
+        val label = melodyLabel(data, playerName) ?: ""
+        data.clay?.let { text("$it $label", width * 5 + 2, y) }
     }
 
     enum class ShowPlayer(private val display: String) {

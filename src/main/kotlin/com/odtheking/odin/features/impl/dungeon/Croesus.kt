@@ -6,8 +6,10 @@ import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
 import com.odtheking.odin.clickgui.settings.impl.ActionSetting
 import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
 import com.odtheking.odin.clickgui.settings.impl.NumberSetting
-import com.odtheking.odin.events.ChatPacketEvent
+import com.odtheking.odin.events.ChatMessageEvent
 import com.odtheking.odin.events.GuiEvent
+import com.odtheking.odin.events.ScreenEvent
+import com.odtheking.odin.events.SetSlotEvent
 import com.odtheking.odin.events.core.on
 import com.odtheking.odin.events.core.onReceive
 import com.odtheking.odin.features.Module
@@ -21,8 +23,6 @@ import kotlinx.coroutines.launch
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
-import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket
-import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -124,9 +124,8 @@ object Croesus : Module(
             }
         }
 
-        onReceive<ClientboundContainerSetSlotPacket> {
-            val screenTitle = mc.gui.screen()?.title?.string ?: return@onReceive
-            val menu = (mc.gui.screen() as? AbstractContainerScreen<*>)?.menu ?: return@onReceive
+        on<SetSlotEvent> {
+            val screenTitle = mc.gui.screen()?.title?.string ?: return@on
 
             when {
                 screenTitle.matches(chestNameRegex) -> handleChestContents(menu.items)
@@ -134,7 +133,7 @@ object Croesus : Module(
             }
         }
 
-        onReceive<ClientboundOpenScreenPacket> {
+        on<ScreenEvent.Open> {
             mostProfitableSlots = emptySet()
             currentChestProfit = null
             chestData = emptyList()
@@ -150,7 +149,7 @@ object Croesus : Module(
             }
         }
 
-        on<ChatPacketEvent> {
+        on<ChatMessageEvent> {
             if (DungeonUtils.inBoss && value.matches(extraStatsRegex)) {
                 currentChestCount++
                 if (currentChestCount > chestWarning) alert("§cChest limit reached!")

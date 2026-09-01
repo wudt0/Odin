@@ -11,18 +11,15 @@ import net.minecraft.world.item.Items
 class MelodyHandler: TerminalHandler(TerminalTypes.MELODY) {
 
     override fun solve(slots: List<Slot>, updatedIndex: Int): List<Int> {
-        val items = slots.map { it.item }
-        val magentaPaneItem = Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA)
-        val magentaPane = items.indexOfFirst { it.item == magentaPaneItem }
-        val greenPane = items.indexOfLast { it.item == Items.STAINED_GLASS_PANE.pick(DyeColor.LIME) }
-        val greenClay = items.indexOfLast { it.item == Items.DYED_TERRACOTTA.pick(DyeColor.LIME) }
+        val magentaPane = slots.indexOfFirst { it.item.item == Items.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA) }
+        val greenPane = slots.indexOfLast { it.item.item == Items.STAINED_GLASS_PANE.pick(DyeColor.LIME) }
+        val greenClay = slots.indexOfLast { it.item.item == Items.DYED_TERRACOTTA.pick(DyeColor.LIME) }
 
-        return items.mapIndexedNotNull { index, item ->
-            when {
-                index == greenPane || item.item == magentaPaneItem -> index
-                index == greenClay && greenPane % 9 == magentaPane % 9 -> index
-                else -> null
-            }
+        return buildList {
+            add(greenPane)
+            add(magentaPane)
+
+            if (greenPane % 9 == magentaPane % 9) add(greenClay)
         }
     }
 
@@ -30,8 +27,8 @@ class MelodyHandler: TerminalHandler(TerminalTypes.MELODY) {
         slotIndex.equalsOneOf(16, 25, 34, 43)
 
     override fun renderSlot(slotIndex: Int): Pair<Color, String?> = when {
-        (slotIndex / 9).equalsOneOf(0, 5) -> TerminalSolver.melodyColumColor
-        (slotIndex % 9).equalsOneOf(1, 2, 3, 4, 5) -> TerminalSolver.melodyPointerColor
+        (slotIndex / 9).equalsOneOf(0, 4) -> TerminalSolver.melodyColumColor
+        (slotIndex % 9).equalsOneOf(1, 2, 3, 4) -> TerminalSolver.melodyPointerColor
         else -> TerminalSolver.melodyPointerColor
     } to null
 }

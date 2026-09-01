@@ -15,6 +15,8 @@ import net.minecraft.client.Options
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
+import net.minecraft.world.item.DyeColor
+import net.minecraft.world.item.Items
 import org.lwjgl.glfw.GLFW
 
 object TerminalSolver : Module(
@@ -37,8 +39,8 @@ object TerminalSolver : Module(
     val firstClickProt by NumberSetting("First Click Protection", 500, 350..800, 10, unit = "ms", desc = "The amount of time after opening a terminal where clicks are blocked to prevent bans (recommended value is 500 minus your ping).").withDependency { firstClickProtSettings }
     val shouldFirstClickProtWithTicks by BooleanSetting("Account For Server Lag",  false, desc = "Prevents bans from clicking when the server lags after opening the terminal (disabled in singleplayer").withDependency { firstClickProtSettings }
     val firstClickProtTicks by NumberSetting("Lag Protection Ticks", 8, 7..16, unit = "ticks", desc = "Each tick = 50ms (recommended value is 8)").withDependency { shouldFirstClickProtWithTicks && firstClickProtSettings }
-    val hideClicked by BooleanSetting("Hide Clicked", false, desc = "Visually hides your first click before a gui updates instantly to improve perceived response time. Does not affect actual click time.").withDependency { solverSettings }
-    val terminalReloadThreshold by NumberSetting("Resolve timeout", 600, 300..1000, 10, unit = "ms", desc = "The amount of time before the terminal reloads after a click wasn't registered while using hide clicked.").withDependency { hideClicked && solverSettings }
+    val hideClicked by BooleanSetting("Client Prediction", true, desc = "Visually predicts the server state before the gui update is sent to the client.").withDependency { solverSettings }
+    val terminalReloadThreshold by NumberSetting("Resolve timeout", 600, 300..1200, 10, unit = "ms", desc = "The amount of time before the terminal reloads after a click wasn't registered while using hide clicked.").withDependency { hideClicked && solverSettings }
     private val debug by BooleanSetting("Debug", false, desc = "Shows debug terminals.").withDependency { solverSettings }
     private val showColors by DropdownSetting("Color Settings", desc = "Shows color settings for the terminal solver.")
     val backgroundColor by ColorSetting("Background", Colors.gray26, true, desc = "Background color of the terminal solver.").withDependency { showColors }
@@ -61,7 +63,6 @@ object TerminalSolver : Module(
     val melodyColumColor by ColorSetting("Melody Column", Colors.MINECRAFT_DARK_PURPLE, true, desc = "Color of the column indicator for melody.").withDependency { showColors && !cancelMelodySolver }
     val melodyPointerColor by ColorSetting("Melody Pointer", Colors.MINECRAFT_GREEN, true, desc = "Color of the location for pressing for melody.").withDependency { showColors && !cancelMelodySolver }
     val melodyBackgroundColor by ColorSetting("Melody Background", Colors.gray38, true, desc = "Color of the background slot in melody.").withDependency { showColors && !cancelMelodySolver }
-
     @JvmStatic val termSize get() = if (enabled && (renderType != RenderType.CUSTOM_GUI) && TerminalUtils.currentTerm != null) if (normalTermSize == 6) Options.AUTO_GUI_SCALE else normalTermSize else 1
     val customGuiEnabled get() = enabled && renderType == RenderType.CUSTOM_GUI && renderMelody
     private val renderMelody get() = !(cancelMelodySolver && TerminalUtils.currentTerm?.type == TerminalTypes.MELODY)
@@ -79,11 +80,11 @@ object TerminalSolver : Module(
             if (term.shouldProtect()) return@on cancel()
 
             if (middleClickGUI) {
-                term.click(slotIndex, if (button == 0) GLFW.GLFW_MOUSE_BUTTON_3 else button, hideClicked && term.clickedSlots.isEmpty())
+                term.click(slotIndex, if (button == 0) GLFW.GLFW_MOUSE_BUTTON_3 else button, hideClicked)
                 return@on cancel()
             }
 
-            if (hideClicked && term.clickedSlots.isEmpty()) term.simulateClick(slotIndex, button)
+            if (hideClicked) term.simulateClick(slotIndex, button)
         }
 
         on<GuiEvent.Render> {
@@ -130,8 +131,8 @@ object TerminalSolver : Module(
                 "§7Container ID: §f${menu.containerId}",
                 "§7Time Open: §f${System.currentTimeMillis() - term.timeOpened}ms",
                 "§7Ticks Open: §f${term.ticksOpened}",
-                "§7Clicked Slots: §f${term.clickedSlots}",
                 "§7Solution: §f${term.solution.joinToString(", ")}",
+                "§7Clicked Slots: §f${term.clickedSlots}",
             )
 
             pose().pushMatrix()
@@ -139,13 +140,14 @@ object TerminalSolver : Module(
             pose().scale(1f / sf, 1f / sf)
             pose().scale(3f)
 
-            textWithWordWrap(mc.font, Component.literal(menu.items.filter { !it.isEmpty }.map { stack -> stack.hoverName.string  }.toString()), 400, 0, 300, Colors.WHITE.rgba)
+            val items = menu.items.subList(0, term.type.windowSize)
+            textWithWordWrap(mc.font, Component.literal(items.filter { !it.isEmpty && it.item != Items.STAINED_GLASS_PANE.pick(DyeColor.BLACK) }.map { stack -> stack.hoverName.string }.toString()), 400, 0, 300, Colors.WHITE.rgba)
 
             debugInfo.forEachIndexed { index, line ->
                 textWithWordWrap(mc.font, Component.literal(line), 5, 20 + (index * 10), 300, Colors.WHITE.rgba)
             }
 
-            menu.items.forEachIndexed { index, stack ->
+            items.forEachIndexed { index, stack ->
                 item(stack, 5 + (index % 9) * 18, 250 + (index / 9) * 18)
                 itemDecorations(mc.font, stack, 5 + (index % 9) * 18, 250 + (index / 9) * 18)
             }

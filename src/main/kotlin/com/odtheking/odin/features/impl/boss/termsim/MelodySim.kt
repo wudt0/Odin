@@ -72,5 +72,3 @@ object MelodySim : TermSimGUI(
         }
     }
 }
-
-

@@ -34,7 +34,7 @@ class BlockInteractEvent(val pos: BlockPos) : CancellableEvent()
 class EntityInteractEvent(val pos: Vec3, val entity: Entity) : CancellableEvent()
 class UseItemOnPostEvent(val hand: InteractionHand, val hitResult: BlockHitResult, val interactionResult: InteractionResult) : Event
 
-class ChatPacketEvent(val value: String, val component: Component) : Event // mixin instead of packet (still needs to run before vanilla processing for hideMessage()
+class ChatMessageEvent(val value: String, val component: Component) : CancellableEvent()
 class MessageSentEvent(val message: String) : CancellableEvent()
 
 class RenderBossBarEvent(val bossBar: BossEvent) : CancellableEvent()
@@ -83,6 +83,5 @@ class CheckmarkUpdateEvent(val room: DungeonRoom, val checkmark: MapCheckmark) :
 class SecretsUpdateEvent(val room: DungeonRoom, val foundSecrets: Int) : Event
 
 object LocationChangeEvent : Event
-
 object ScreenCloseEvent : Event
 class SetSlotEvent(val slotIndex: Int, val itemStack: ItemStack, val slots: List<Slot>, val menu: AbstractContainerMenu) : Event

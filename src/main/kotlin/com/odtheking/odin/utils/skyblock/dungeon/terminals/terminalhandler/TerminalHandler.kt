@@ -16,10 +16,12 @@ import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalTypes
 import net.minecraft.world.inventory.ContainerInput
 import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.DyeColor
+import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
 import org.lwjgl.glfw.GLFW
 
 abstract class TerminalHandler(val type: TerminalTypes) {
+    private val lastSeenItems = HashMap<Int, Item>()
     val clickedSlots = ArrayList<Pair<Int, Int>>()
     val timeOpened = System.currentTimeMillis()
     val solution = ArrayList<Int>()
@@ -29,8 +31,10 @@ abstract class TerminalHandler(val type: TerminalTypes) {
     open fun updateSlot(event: SetSlotEvent) {
         if (event.slots.isEmpty() || event.slotIndex !in 0 until type.windowSize - 9 || event.itemStack.item == Items.STAINED_GLASS_PANE.pick(DyeColor.BLACK)) return
 
-        val index = clickedSlots.indexOfFirst { it.first == event.slotIndex }
-        if (index >= 0) clickedSlots.subList(0, index + 1).clear()
+        if (lastSeenItems.put(event.slotIndex, event.itemStack.item) != event.itemStack.item) {
+            val index = clickedSlots.indexOfFirst { it.first == event.slotIndex }
+            if (index >= 0) clickedSlots.subList(0, index + 1).clear()
+        }
 
         solution.clear()
         solution.addAll(solve(event.slots.subList(0, type.windowSize - 9), event.slotIndex))
@@ -64,7 +68,7 @@ abstract class TerminalHandler(val type: TerminalTypes) {
     open fun canClick(slotIndex: Int, button: Int): Boolean = slotIndex in solution
 
     fun shouldProtect(): Boolean =
-            !(TerminalSimulator.disableFirstClickProtection && mc.gui.screen() is TermSimGUI)
+        !(TerminalSimulator.disableFirstClickProtection && mc.gui.screen() is TermSimGUI)
             && (System.currentTimeMillis() - timeOpened < firstClickProt ||
             (!LocationUtils.isCurrentArea(Island.SinglePlayer) && shouldFirstClickProtWithTicks && ticksOpened < firstClickProtTicks))
 }
