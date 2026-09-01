@@ -3,6 +3,7 @@ package com.odtheking.odin.features.impl.skyblock
 import com.odtheking.odin.clickgui.settings.impl.*
 import com.odtheking.odin.clickgui.settings.impl.label
 import com.odtheking.odin.events.GuiEvent
+import com.odtheking.odin.events.ScreenCloseEvent
 import com.odtheking.odin.events.ScreenEvent
 import com.odtheking.odin.events.core.on
 import com.odtheking.odin.features.Module
@@ -57,7 +58,7 @@ object SlotBinds : Module(
                 else -> return@on
             }
 
-            mc.player?.clickSlot(screen.menu.containerId, from, to % 36, ContainerInput.SWAP)
+            mc.player?.clickSlot(from, to % 36, ContainerInput.SWAP)
             cancel()
         }
 
@@ -107,7 +108,7 @@ object SlotBinds : Module(
             guiGraphics.drawLine(startX.toFloat(), startY.toFloat(), endX.toFloat(), endY.toFloat(), lineColor, lineWidth)
         }
 
-        on<ScreenEvent.Close> {
+        on<ScreenCloseEvent> {
             previousSlot = null
         }
     }

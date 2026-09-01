@@ -3,7 +3,9 @@ package com.odtheking.odin.features.impl.dungeon
 import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
 import com.odtheking.odin.clickgui.settings.impl.*
 import com.odtheking.odin.events.ChatPacketEvent
+import com.odtheking.odin.events.LevelEvent
 import com.odtheking.odin.events.ScreenEvent
+import com.odtheking.odin.events.SetSlotEvent
 import com.odtheking.odin.events.core.on
 import com.odtheking.odin.features.Module
 import com.odtheking.odin.utils.*
@@ -18,6 +20,7 @@ import com.odtheking.odin.utils.ui.animations.Fade
 import com.odtheking.odin.utils.ui.widget.CustomGUIImpl
 import net.minecraft.client.gui.components.PlayerFaceExtractor
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.world.item.Items
 import org.lwjgl.glfw.GLFW
 
 object LeapMenu : Module(
@@ -48,7 +51,9 @@ object LeapMenu : Module(
     private val hoverFade = List(4) { Fade(HOVER_DURATION) }
 
     private val EMPTY = DungeonPlayer("Empty", DungeonClass.EMPTY, 0, null)
-    private val leapedRegex = Regex("You have teleported to (\\w{1,16})!")
+    private val leapedRegex = Regex("^You have teleported to (\\w{1,16})!$")
+    private val playerNameRegex = Regex("^(?:\\[.+?] )?(\\w{1,16})$")
+    private val leapIndex = HashMap<String, Int>()
 
     const val BOX_WIDTH = 200
     const val BOX_HEIGHT = 75
@@ -156,6 +161,18 @@ object LeapMenu : Module(
         on<ChatPacketEvent> {
             if (leapAnnounce && DungeonUtils.inDungeons)
                 leapedRegex.find(value)?.groupValues?.get(1)?.let { sendCommand("pc Leaped to ${it}!") }
+        }
+
+        on<SetSlotEvent> {
+            currentLeapScreen()?.let {
+                if (itemStack.isEmpty || itemStack.item != Items.PLAYER_HEAD) return@on
+                val (name) = playerNameRegex.find(itemStack.hoverName.string)?.destructured ?: return@on
+                leapIndex[name] = slotIndex
+            }
+        }
+
+        on<LevelEvent.Load> {
+            leapIndex.clear()
         }
     }
 

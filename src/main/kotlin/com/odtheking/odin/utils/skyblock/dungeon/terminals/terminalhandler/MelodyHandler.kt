@@ -1,4 +1,4 @@
-package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
+﻿package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
 
 import com.odtheking.odin.features.impl.boss.TerminalSolver
 import com.odtheking.odin.utils.Color

@@ -1,4 +1,4 @@
-package com.odtheking.mixin.mixins;
+﻿package com.odtheking.mixin.mixins;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;

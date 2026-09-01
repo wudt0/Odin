@@ -1,4 +1,4 @@
-package com.odtheking.odin.features.impl.dungeon
+﻿package com.odtheking.odin.features.impl.dungeon
 
 import com.odtheking.odin.OdinMod
 import com.odtheking.odin.OdinMod.scope

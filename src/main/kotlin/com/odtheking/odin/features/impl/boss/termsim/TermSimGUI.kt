@@ -1,4 +1,4 @@
-package com.odtheking.odin.features.impl.boss.termsim
+﻿package com.odtheking.odin.features.impl.boss.termsim
 
 import com.odtheking.odin.OdinMod.mc
 import com.odtheking.odin.events.GuiEvent

@@ -2,10 +2,11 @@ package com.odtheking.odin.features.impl.boss
 
 import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
 import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
+import com.odtheking.odin.clickgui.settings.impl.SelectorSetting
 import com.odtheking.odin.clickgui.settings.impl.StringSetting
 import com.odtheking.odin.events.ChatPacketEvent
-import com.odtheking.odin.events.GuiEvent
 import com.odtheking.odin.events.LevelEvent
+import com.odtheking.odin.events.SetSlotEvent
 import com.odtheking.odin.events.TerminalEvent
 import com.odtheking.odin.events.core.on
 import com.odtheking.odin.features.Module
@@ -18,6 +19,7 @@ import com.odtheking.odin.utils.render.getStringWidth
 import com.odtheking.odin.utils.render.textDim
 import com.odtheking.odin.utils.sendCommand
 import com.odtheking.odin.utils.skyblock.LocationUtils
+import com.odtheking.odin.utils.skyblock.dungeon.DungeonClass
 import com.odtheking.odin.utils.skyblock.dungeon.DungeonUtils
 import com.odtheking.odin.utils.skyblock.dungeon.M7Phases
 import com.odtheking.odin.utils.skyblock.dungeon.terminals.TerminalTypes
@@ -38,25 +40,26 @@ object MelodyMessage : Module(
 
     private val broadcast by BooleanSetting("Broadcast Progress", true, desc = "Broadcasts melody progress to all other odin users in the party.")
     private val melodyGui by HUD("Progress GUI", "Shows a gui with the progress of broadcasting odin users in melody.", true) {
-        if (it) drawMelody(MelodyData(3, 1, 2), 0)
+        if (it) drawMelody(MelodyData(3, 1, 2, DungeonClass.ARCHER), 0, mc.user.name)
 
         if (broadcast && melodyWebSocket.connected) {
             melodies.entries.forEachIndexed { i, (name, data) ->
-                if (!showOwn && name == mc.user.name) return@forEachIndexed
-                drawMelody(data, i)
+                if (showPlayer == 0 && name == mc.user.name) return@forEachIndexed
+                drawMelody(data, i, name)
             }
         }
         40 to 15
     }.withDependency { broadcast }
 
-    private val showOwn: Boolean by BooleanSetting("Show Own", false, desc = "Shows your own progress in the melody GUI.").withDependency { broadcast && melodyGui.enabled }
+    private val showPlayer by SelectorSetting("Show Player", "Name", arrayListOf("None", "Class", "Name", "Class & Name"), desc = "How player details should be rendered in the Melody GUI.").withDependency { broadcast }
 
     val melodyWebSocket = webSocket {
-        onMessage {
-            val (user, type, slot) = try { gson.fromJson(it, UpdateMessage::class.java) } catch (_: Exception) { return@onMessage }
-            val entry = melodies.getOrPut(user) { MelodyData(null, null, null) }
+        onMessage { message ->
+            val (username, type, slot) = try { gson.fromJson(message, UpdateMessage::class.java) } catch (_: Exception) { return@onMessage }
+            val playerClass = DungeonUtils.dungeonTeammates.find { it.name == username }?.clazz ?: return@onMessage
+            val entry = melodies.getOrPut(username) { MelodyData(null, null, null, playerClass) }
             when (type) {
-                0 -> melodies.remove(user)
+                0 -> melodies.remove(username)
                 1 -> entry.clay = slot
                 2 -> entry.purple = slot
                 5 -> entry.pane = slot
@@ -65,7 +68,7 @@ object MelodyMessage : Module(
     }
 
     private val melodies = ConcurrentHashMap<String, MelodyData>()
-    private val lastSent = MelodyData(null, null, null)
+    private val lastSent = MelodyData(null, null, null, DungeonClass.EMPTY)
 
     init {
         on<TerminalEvent.Open> {
@@ -78,8 +81,8 @@ object MelodyMessage : Module(
             if (broadcast || melodyProgress) onChatMessage(value)
         }
 
-        on<GuiEvent.SlotUpdate> {
-            if (broadcast || melodyProgress) onSlotUpdate(this)
+        on<SetSlotEvent> {
+            if (broadcast || melodyProgress) onSlotUpdate()
         }
 
         on<LevelEvent.Load> {
@@ -107,7 +110,7 @@ object MelodyMessage : Module(
         }
     }
 
-    private fun onSlotUpdate(event: GuiEvent.SlotUpdate) {
+    private fun SetSlotEvent.onSlotUpdate() {
         val term = TerminalUtils.currentTerm ?: return
         if (DungeonUtils.getF7Phase() != M7Phases.P3 || term.type != TerminalTypes.MELODY || mc.gui.screen() is TermSimGUI) return
 
@@ -141,8 +144,8 @@ object MelodyMessage : Module(
 
     private fun update(type: Int, slot: Int): String = gson.toJson(UpdateMessage(mc.user.name, type, slot))
 
-    private val clayProgress = hashMapOf(2 to "Melody 25%", 3 to "Melody 50%", 4 to "Melody 75%")
-    private val ranges = listOf(1..5, 10..14, 19..23, 28..32, 37..41)
+    private val clayProgress = hashMapOf(2 to "Melody 33%", 3 to "Melody 67%")
+    private val ranges = listOf(1..5, 10..14, 19..23, 28..32)
 
     private fun mapToRange(value: Int): Int? {
         for (r in ranges) {
@@ -153,16 +156,24 @@ object MelodyMessage : Module(
 
     private val width by lazy { getStringWidth("§d■") }
 
-    private fun GuiGraphicsExtractor.drawMelody(data: MelodyData, index: Int) {
+    private fun GuiGraphicsExtractor.drawMelody(data: MelodyData, index: Int, playerName: String) {
         val y = width * 2 * index
 
         repeat(5) {
             if (data.purple == it) textDim("§d■", width * it, y)
             textDim("${if (data.pane == it) "§a" else "§f"}■", width * it, y + width)
         }
-        data.clay?.let { textDim(it.toString(), width * 5 + 2, y + width / 2) }
+
+        val label = when (showPlayer) {
+            1 -> data.dungeonClass
+            2 -> playerName
+            3 -> "$playerName (${data.dungeonClass})"
+            else -> return
+        }
+
+        data.clay?.let { textDim("$it $label", width * 5 + 2, y + width / 2) }
     }
 
-    private data class UpdateMessage(val user: String, val type: Int, val slot: Int)
-    private data class MelodyData(var purple: Int?, var pane: Int?, var clay: Int?)
+    private data class UpdateMessage(val username: String, val type: Int, val slot: Int)
+    private data class MelodyData(var purple: Int?, var pane: Int?, var clay: Int?, val dungeonClass: DungeonClass)
 }

@@ -34,11 +34,7 @@ object EventDispatcher {
 
         LevelRenderEvents.COLLECT_SUBMITS.register { context -> RenderEvent.Extract(context).postAndCatch() }
 
-        ScreenEvents.AFTER_INIT.register { _, screen, _, _ -> ScreenEvent.Open(screen).postAndCatch() }
         ScreenEvents.BEFORE_INIT.register { _, screen, _, _ ->
-            ScreenEvents.remove(screen).register {
-                ScreenEvent.Close(screen).postAndCatch()
-            }
             ScreenMouseEvents.allowMouseClick(screen).register { screen, event ->
                 !ScreenEvent.MouseClick(screen, event).postAndCatch()
             }

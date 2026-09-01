@@ -1,4 +1,4 @@
-package com.odtheking.odin.features.impl.nether
+﻿package com.odtheking.odin.features.impl.nether
 
 import com.odtheking.odin.clickgui.settings.impl.BooleanSetting
 import com.odtheking.odin.events.GuiEvent

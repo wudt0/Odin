@@ -1,4 +1,4 @@
-package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
+﻿package com.odtheking.odin.utils.skyblock.dungeon.terminals.terminalhandler
 
 import com.google.common.primitives.Shorts
 import com.google.common.primitives.SignedBytes

@@ -1,4 +1,4 @@
-package com.odtheking.odin.features.impl.dungeon.map
+﻿package com.odtheking.odin.features.impl.dungeon.map
 
 import com.odtheking.odin.clickgui.settings.Setting.Companion.withDependency
 import com.odtheking.odin.clickgui.settings.impl.BooleanSetting

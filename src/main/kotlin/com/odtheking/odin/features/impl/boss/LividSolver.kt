@@ -27,7 +27,7 @@ object LividSolver : Module(
 ) {
     private val hud by HUD("Invulnerability Timer", "Shows time remaining on Livid's invulnerability.") { example ->
         if (!example && (!DungeonUtils.inBoss || !DungeonUtils.isFloor(5) || invulnTime <= 0)) return@HUD 0 to 0
-        val time = if (example) 390 else invulnTime
+        val time = if (example) 350 else invulnTime
         val color = when {
             time > 260 -> "§a"
             time > 130 -> "§e"
@@ -45,13 +45,12 @@ object LividSolver : Module(
     init {
         on<ChatPacketEvent> {
             if (!DungeonUtils.inDungeons || !DungeonUtils.isFloor(5)) return@on
-            if (value.matches(lividStartRegex)) invulnTime = 390
+            if (value.matches(lividStartRegex)) invulnTime = 350
         }
 
         on<BlockUpdateEvent> {
             if (!DungeonUtils.inBoss || !DungeonUtils.isFloor(5) || pos != woolLocation) return@on
             currentLivid = Livid.entries.find { livid -> livid.wool.defaultBlockState() == updated.block.defaultBlockState() } ?: return@on
-            modMessage("Found Livid: §${currentLivid.colorCode}${currentLivid.entityName}")
         }
 
         onReceive<ClientboundSetEntityDataPacket> {
@@ -60,7 +59,7 @@ object LividSolver : Module(
         }
 
         on<RenderEvent.Extract> {
-            if (!DungeonUtils.inBoss || !DungeonUtils.isFloor(5) || mc.player?.getEffect(MobEffects.BLINDNESS) != null) return@on
+            if (!DungeonUtils.inBoss || !DungeonUtils.isFloor(5) || mc.player?.getEffect(MobEffects.BLINDNESS) != null || invulnTime > 80) return@on
             currentLivid.entity?.let { entity ->
                 drawStyledBox(entity.renderBoundingBox, highlightColor, BoxStyle.FILLED_OUTLINE, true)
             }
@@ -68,7 +67,8 @@ object LividSolver : Module(
 
         on<TickEvent.Server> {
             if (!DungeonUtils.inBoss || !DungeonUtils.isFloor(5)) return@on
-            if (invulnTime > 0) invulnTime--
+            if (invulnTime >= 0) invulnTime--
+            if (invulnTime == 80) modMessage("Found Livid: §${currentLivid.colorCode}${currentLivid.entityName}")
         }
 
         on<LevelEvent.Load> {

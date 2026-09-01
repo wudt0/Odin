@@ -1,4 +1,4 @@
-package com.odtheking.odin.utils.skyblock.dungeon.terminals
+﻿package com.odtheking.odin.utils.skyblock.dungeon.terminals
 
 import com.odtheking.odin.OdinMod.mc
 import com.odtheking.odin.events.ChatPacketEvent
