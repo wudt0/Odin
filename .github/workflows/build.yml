@@ -36,3 +36,19 @@ jobs:
             build/libs/Odin-*.jar
             !build/libs/Odin-*-sources.jar
           archive: false
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/26.2' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/libs/Odin-*.jar
+          tag_name: build-${{ github.run_number }}-${{ github.run_id }}
+          body: |
+            Automated build from commit ${{ github.sha }}
+            Branch: ${{ github.ref }}
+            
+            **Download the mod jar file below** - anyone can access this release!
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
